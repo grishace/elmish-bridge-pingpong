@@ -1,6 +1,5 @@
 module Client
 
-open System
 open Fable.Core
 open Elmish
 open Elmish.Bridge
@@ -11,8 +10,6 @@ open Fulma
 
 open FetchHelpers
 open Shared
-
-let id = Guid.NewGuid()
 
 type Model = {
     State: PingPong option
