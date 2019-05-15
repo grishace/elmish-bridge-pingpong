@@ -1,5 +1,7 @@
 # SAFE Template [upgraded, with Elmish.Bridge]
 
+![Ping-pong](https://github.com/grishace/elmish-bridge-pingpong/raw/master/in-action.png)
+
 This template can be used to generate a full-stack web application using the [SAFE Stack](https://safe-stack.github.io/). It was created using the dotnet [SAFE Template](https://safe-stack.github.io/docs/template-overview/). If you want to learn more about the template why not start with the [quick start](https://safe-stack.github.io/docs/quickstart/) guide?
 
 ## Install pre-requisites
