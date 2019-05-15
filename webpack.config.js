@@ -12,6 +12,8 @@ var HtmlWebpackPlugin = require('html-webpack-plugin');
 var CopyWebpackPlugin = require('copy-webpack-plugin');
 var MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
+var port = process.env.SERVER_PROXY_PORT || "8085"
+
 var CONFIG = {
     // The tags to include the generated JS and CSS will be automatically injected in the HTML template
     // See https://github.com/jantimon/html-webpack-plugin
@@ -26,9 +28,13 @@ var CONFIG = {
     devServerProxy: {
         // redirect requests that start with /api/* to the server on port 8085
         '/api/*': {
-            target: 'http://localhost:' + (process.env.SERVER_PROXY_PORT || "8085"),
+            target: 'http://localhost:' + port,
                changeOrigin: true
-           }
+           },
+        '/socket': {
+            target: 'http://localhost:' + port,
+            ws: true
+         }
        },
     // Use babel-preset-env to generate JS compatible with most-used browsers.
     // More info at https://babeljs.io/docs/en/next/babel-preset-env.html
@@ -85,7 +91,7 @@ module.exports = {
     // Besides the HtmlPlugin, we use the following plugins:
     // PRODUCTION
     //      - MiniCssExtractPlugin: Extracts CSS from bundle to a different file
-    //          To minify CSS, see https://github.com/webpack-contrib/mini-css-extract-plugin#minimizing-for-production    
+    //          To minify CSS, see https://github.com/webpack-contrib/mini-css-extract-plugin#minimizing-for-production
     //      - CopyWebpackPlugin: Copies static assets to output directory
     // DEVELOPMENT
     //      - HotModuleReplacementPlugin: Enables hot reloading when code changes without refreshing

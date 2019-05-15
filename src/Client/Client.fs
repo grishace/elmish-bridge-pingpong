@@ -1,140 +1,86 @@
 module Client
 
+open System
+open Fable.Core
 open Elmish
+open Elmish.Bridge
 open Elmish.React
-
-open Browser
-open Browser.Types
-open Browser.Dom
 open Fable.React
 open Fable.React.Props
-
-open Fable.Core
-open Fetch.Types
-
-open Thoth.Json
-open Shared
 open Fulma
 
-// The model holds data that you want to keep track of while the application is running
-// in this case, we are keeping track of a counter
-// we mark it as optional, because initially it will not be available from the client
-// the initial value will be requested from server
-type Model = { Counter: Counter option }
+open FetchHelpers
+open Shared
 
-// The Msg type defines what events/actions can occur while the application is running
-// the state of the application changes *only* in reaction to these events
-type Msg =
-| Noop
-| Increment
-| Decrement
-| InitialCountLoaded of Result<Counter, string>
+let id = Guid.NewGuid()
 
-let keyToCmd _ =
-    let sub dispatch =
-        document.onkeydown <-
-            (fun e ->
-                match int e.keyCode with
-                | 107 | 187 -> Increment
-                | 109 | 189 -> Decrement
-                | _ -> Noop
-                |> dispatch)
-    Cmd.ofSub sub
+type Model = {
+    State: PingPong option
+    SocketConnected: bool
+}
 
+let initialState () = fetchAs<PingPong> "/api/init" []
 
-let fetchWithDecoder<'T> (url: string) (decoder: Decoder<'T>) (init: RequestProperties list) =
-    GlobalFetch.fetch(RequestInfo.Url url, Fetch.requestProps init)
-    |> Promise.bind (fun response ->
-        if not response.Ok then
-            response.StatusText |> Error |> Promise.lift
-        else
-            response.text() |> Promise.map (Decode.fromString decoder))
-
-// Inline the function so Fable can resolve the generic parameter at compile time
-let inline fetchAs<'T> (url: string) (init: RequestProperties list) =
-    // In this example we use Thoth.Json cached auto decoders
-    // More info at: https://mangelmaxime.github.io/Thoth/json/v3.html#caching
-    let decoder = Decode.Auto.generateDecoderCached<'T>()
-    fetchWithDecoder url decoder init
-
-let initialCounter () = fetchAs<Counter> "/api/init" []
-
-// defines the initial state and initial command (= side-effect) of the application
 let init () : Model * Cmd<Msg> =
-    let initialModel = { Counter = None }
-    let loadCountCmd =
+    let initialModel = { State = None; SocketConnected = false }
+    let loadStateCmd =
         Cmd.OfPromise.either
-            initialCounter
+            initialState
             ()
-            InitialCountLoaded
-            (fun ex -> ex.Message |> Error |> InitialCountLoaded)
-    initialModel, loadCountCmd
+            InitialStateLoaded
+            (fun ex -> ex.Message |> Error |> InitialStateLoaded)
+    initialModel, loadStateCmd
 
-
-// The update function computes the next state of the application based on the current state and the incoming events/messages
-// It can also run side-effects (encoded as commands) like calling the server via Http.
-// these commands in turn, can dispatch messages to which the update function will react.
 let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
-    match currentModel.Counter, msg with
-    | Some counter, Increment ->
-        let nextModel = { currentModel with Counter = Some { Value = counter.Value + 1 } }
+    match currentModel.State, msg with
+    | _, InitialStateLoaded (Ok initialState)->
+        let nextModel = { State = Some initialState; SocketConnected = false }
+        nextModel, Cmd.ofMsg ConnectSocket
+
+    | _, ConnectSocket ->
+        try
+            Bridge.Send Connect
+            { currentModel with SocketConnected = true }, Cmd.none
+        with _ ->
+            let delay () = promise {
+                do! Async.Sleep 1000 |> Async.StartAsPromise
+            }
+            let checkSocket = (fun _ -> ConnectSocket)
+            { currentModel with SocketConnected = false }, Cmd.OfPromise.either delay () checkSocket checkSocket
+
+    | _, NewState Ping ->
+        let nextModel = { currentModel with State = Some Ping }
         nextModel, Cmd.none
-    | Some counter, Decrement ->
-        let nextModel = { currentModel with Counter = Some { Value = counter.Value - 1 } }
-        nextModel, Cmd.none
-    | _, InitialCountLoaded (Ok initialCount)->
-        let nextModel = { Counter = Some initialCount }
+
+    | _, NewState Pong ->
+        let nextModel = { currentModel with State = Some Pong }
         nextModel, Cmd.none
 
     | _ -> currentModel, Cmd.none
 
-
-let safeComponents =
-    let components =
-        span [ ]
-           [
-             a [ Href "https://saturnframework.github.io" ] [ str "Saturn" ]
-             str ", "
-             a [ Href "http://fable.io" ] [ str "Fable" ]
-             str ", "
-             a [ Href "https://elmish.github.io/elmish/" ] [ str "Elmish" ]
-             str ", "
-             a [ Href "https://fulma.github.io/Fulma" ] [ str "Fulma" ]
-           ]
-
-    span [ ]
-        [ strong [] [ str "SAFE Template" ]
-          str " powered by: "
-          components ]
-
-let show = function
-| { Counter = Some counter } -> string counter.Value
-| { Counter = None   } -> "Loading..."
-
-let button txt onClick =
+let button dis txt onClick =
     Button.button
-        [ Button.IsFullWidth
+        [ Button.Disabled dis
           Button.Color IsPrimary
           Button.OnClick onClick ]
         [ str txt ]
 
+let show = function
+| { SocketConnected = connected; State = Some state } ->
+    button (not connected) (string state) (fun _ -> Bridge.Send (Action state))
+| { State = None   } -> str "Loading..."
+
 let view (model : Model) (dispatch : Msg -> unit) =
-    div []
-        [ Navbar.navbar [ Navbar.Color IsPrimary ]
-            [ Navbar.Item.div [ ]
-                [ Heading.h2 [ ]
-                    [ str "SAFE Template" ] ] ]
+    div [ Style [ Padding 50.0 ] ] [
 
-          Container.container []
-              [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Fulma.Screen.All, TextAlignment.Centered) ] ]
-                    [ Heading.h3 [] [ str ("Press buttons to manipulate counter: " + show model) ] ]
-                Columns.columns []
-                    [ Column.column [] [ button "-" (fun _ -> dispatch Decrement) ]
-                      Column.column [] [ button "+" (fun _ -> dispatch Increment) ] ] ]
+        ol [ Style [ MarginBottom 50.0 ]  ] [
+            li [] [ str "Open developer tools" ]
+            li [] [ str "Refresh the page" ]
+            li [] [ str "Select Network tab, socket URL in the requests list, and Messages preview in the right pane" ]
+            li [] [ str "Watch Elmish.Bridge messages"]
+        ]
 
-          Footer.footer [ ]
-                [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Fulma.Screen.All, TextAlignment.Centered) ] ]
-                    [ safeComponents ] ] ]
+        show model ]
 
 #if DEBUG
 open Elmish.Debug
@@ -142,11 +88,11 @@ open Elmish.HMR
 #endif
 
 Program.mkProgram init update view
-|> Program.withSubscription keyToCmd
+|> Program.withBridgeConfig (Bridge.endpoint "./socket" |> Bridge.withUrlMode Append)
 #if DEBUG
 |> Program.withConsoleTrace
 #endif
-|> Program.withReactBatched "elmish-app"
+|> Program.withReactBatched "ping-pong"
 #if DEBUG
 |> Program.withDebugger
 #endif
