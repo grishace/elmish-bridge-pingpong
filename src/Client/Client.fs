@@ -7,8 +7,7 @@ open Elmish.React
 open Fable.React
 open Fable.React.Props
 open Fulma
-
-open FetchHelpers
+open Thoth.Fetch
 open Shared
 
 type Model = {
@@ -16,7 +15,7 @@ type Model = {
     SocketConnected: bool
 }
 
-let initialState () = fetchAs<PingPong> "/api/init" []
+let initialState () = Fetch.tryFetchAs<PingPong>("/api/init", [])
 
 let init () : Model * Cmd<Msg> =
     let initialModel = { State = None; SocketConnected = false }
