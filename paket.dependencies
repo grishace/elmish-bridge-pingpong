@@ -1,11 +1,11 @@
-version 5.210.1
+version 5.247.4
 
 group Server
     source https://api.nuget.org/v3/index.json
-    framework: netcoreapp2.2
+    framework: netcoreapp3.1
     storage: none
 
-    nuget FSharp.Core 4.6.2
+    nuget FSharp.Core
     nuget Saturn
     nuget Thoth.Json.Giraffe
     nuget Elmish.Bridge.Giraffe
@@ -29,4 +29,4 @@ group Build
 
     nuget Fake.Core.Target
     nuget Fake.DotNet.Cli
-    nuget FSharp.Core 4.6.2
+    nuget FSharp.Core

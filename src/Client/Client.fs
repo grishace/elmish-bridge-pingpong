@@ -15,7 +15,7 @@ type Model = {
     SocketConnected: bool
 }
 
-let initialState () = Fetch.tryFetchAs<PingPong>("/api/init", [])
+let initialState () = Fetch.tryFetchAs<FetchError, PingPong>("/api/init")
 
 let init () : Model * Cmd<Msg> =
     let initialModel = { State = None; SocketConnected = false }
@@ -23,8 +23,12 @@ let init () : Model * Cmd<Msg> =
         Cmd.OfPromise.either
             initialState
             ()
-            InitialStateLoaded
-            (fun ex -> ex.Message |> Error |> InitialStateLoaded)
+            (fun res ->
+                match res with
+                | Ok r ->  InitialStateLoaded (Ok r)
+                | _ -> InitialStateLoaded (Error "Unknown error")
+            )
+            (fun _ -> InitialStateLoaded (Error "Fetch error"))
     initialModel, loadStateCmd
 
 let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
