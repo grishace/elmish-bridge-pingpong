@@ -28,7 +28,7 @@
     "dependencies": {
         "acorn": "5.7.4",
         "kind-of": "6.0.3",
-        "minimist": "1.2.3",
+        "minimist": "1.2.6",
         "serialize-javascript": "2.1.1"
     }
 }
